@@ -3,28 +3,34 @@ import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 
-# Variable global para almacenar los archivos cargados
 archivos_cargados = []
 
 def buscar_archivos():
     directorio = filedialog.askdirectory()
-    archivos = [os.path.join(directorio, archivo) for archivo in os.listdir(directorio) if archivo.endswith('.xlsx')]
+    archivos = [os.path.join(directorio, archivo) for archivo in os.listdir(directorio) if archivo.endswith('.xlsx') and not archivo.startswith('~$')]
+    for archivo in archivos:
+        print(archivo)
     return archivos
 
 def cargar_datos():
     global archivos_cargados
     archivos_cargados = buscar_archivos()
+    for archivo in archivos_cargados:
+        df = pd.read_excel(archivo)
 
 def filtrar_datos(archivos_cargados, laboratorio, fecha_inicio, fecha_fin):
     datos_totales = []
-    columnas_necesarias = ['A', 'D', 'H', 'G']  # Columnas necesarias: Laboratorio, Fecha, Importe, Unidades
     # Iterar sobre cada archivo cargado
     for archivo in archivos_cargados:
-        # Leer el archivo y seleccionar las columnas necesarias
-        df = pd.read_excel(archivo, usecols=columnas_necesarias)
-        df.columns = ['Laboratorio', 'Fecha', 'Importe', 'Unidades']  # Renombrar las columnas
+        # Leer el archivo
+        df = pd.read_excel(archivo)
+        # Convertir la columna 'Laboratorio' a cadena (str) si no lo es
+        df['Laboratorio'] = df['Laboratorio'].astype(str)
+        # Convertir la columna 'Fecha' a formato de fecha y hora (datetime) si no lo es
+        df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
         # Filtrar por laboratorio y rango de fechas
         filtro = (df['Laboratorio'] == laboratorio) & (df['Fecha'].between(fecha_inicio, fecha_fin))
+
         datos_filtrados = df[filtro]
         datos_totales.append(datos_filtrados)
     # Concatenar los datos filtrados en un único DataFrame
