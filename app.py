@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox, ttk
 import openpyxl
 import json
 
+<<<<<<< HEAD
 class ExcelViewerApp:
     def __init__(self, root):
         self.root = root
@@ -33,6 +34,40 @@ class ExcelViewerApp:
         self.label_sheet.grid(row=1, column=0)
         self.sheet_dropdown = ttk.Combobox(self.root, textvariable=self.selected_sheet, state="readonly", width=30)
         self.sheet_dropdown.grid(row=1, column=1)
+=======
+archivos_cargados = []
+
+def buscar_archivos():
+    directorio = filedialog.askdirectory()
+    archivos = [os.path.join(directorio, archivo) for archivo in os.listdir(directorio) if archivo.endswith('.xlsx') and not archivo.startswith('~$')]
+    for archivo in archivos:
+        print(archivo)
+    return archivos
+
+def cargar_datos():
+    global archivos_cargados
+    archivos_cargados = buscar_archivos()
+    for archivo in archivos_cargados:
+        df = pd.read_excel(archivo)
+
+def filtrar_datos(archivos_cargados, laboratorio, fecha_inicio, fecha_fin):
+    datos_totales = []
+    # Iterar sobre cada archivo cargado
+    for archivo in archivos_cargados:
+        # Leer el archivo
+        df = pd.read_excel(archivo)
+        # Convertir la columna 'Laboratorio' a cadena (str) si no lo es
+        df['Laboratorio'] = df['Laboratorio'].astype(str)
+        # Convertir la columna 'Fecha' a formato de fecha y hora (datetime) si no lo es
+        df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
+        # Filtrar por laboratorio y rango de fechas
+        filtro = (df['Laboratorio'] == laboratorio) & (df['Fecha'].between(fecha_inicio, fecha_fin))
+
+        datos_filtrados = df[filtro]
+        datos_totales.append(datos_filtrados)
+    # Concatenar los datos filtrados en un único DataFrame
+    return pd.concat(datos_totales)
+>>>>>>> 0bbd141a1a6aa97d44678207b1b61cfb4798c391
 
         self.label_fecha_inicio = tk.Label(self.root, text="Fecha inicio (YYYY-MM-DD):")
         self.label_fecha_inicio.grid(row=2, column=0)
