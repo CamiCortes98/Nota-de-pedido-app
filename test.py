@@ -8,11 +8,13 @@ from tkcalendar import DateEntry
 import json
 from ttkwidgets.autocomplete import AutocompleteCombobox
 from datetime import datetime
+import locale
 
 class SumarizadorNotasPedido:
     def __init__(self, root):
         self.root = root
         self.root.title("Sumarizador de Notas de Pedido")
+        self.root.geometry("600x300")
         
         self.df = None
         self.df_sumarizado = None
@@ -25,22 +27,16 @@ class SumarizadorNotasPedido:
         # Botones
         self.btn_cargar = tk.Button(self.root, text="Cargar archivos", command=self.cargar_archivo_carpeta)
         self.btn_cargar.pack(pady=10)
-        
-        self.btn_sumarizar = tk.Button(self.root, text="Sumarizar", command=self.sumarizar)
-        self.btn_sumarizar.pack(pady=5)
-
-        self.btn_descargar = tk.Button(self.root, text="Descargar Resultados", command=self.descargar_resultados)
-        self.btn_descargar.pack(pady=5)
 
         # Calendarios para seleccionar el rango de fechas
         self.lbl_fecha_inicio = tk.Label(self.root, text="Seleccione fecha de inicio:")
         self.lbl_fecha_inicio.pack()
-        self.cal_fecha_inicio = DateEntry(self.root, width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.cal_fecha_inicio = DateEntry(self.root, width=12, background='darkblue', foreground='white', borderwidth=2, locale='es_ES')
         self.cal_fecha_inicio.pack()
 
         self.lbl_fecha_fin = tk.Label(self.root, text="Seleccione fecha de fin:")
         self.lbl_fecha_fin.pack()
-        self.cal_fecha_fin = DateEntry(self.root, width=12, background='darkblue', foreground='white', borderwidth=2)
+        self.cal_fecha_fin = DateEntry(self.root, width=12, background='darkblue', foreground='white', borderwidth=2, locale='es_ES')
         self.cal_fecha_fin.pack()
 
         # Desplegable para seleccionar el laboratorio con campo de búsqueda
@@ -49,6 +45,16 @@ class SumarizadorNotasPedido:
         self.selected_laboratorio = tk.StringVar()
         self.entry_laboratorio = AutocompleteCombobox(self.root, textvariable=self.selected_laboratorio, completevalues=self.laboratorios)
         self.entry_laboratorio.pack()
+
+        # Botones Sumarizar y Descargar Resultados
+        self.frame_botones = tk.Frame(self.root)
+        self.frame_botones.pack(pady=10)
+        
+        self.btn_sumarizar = tk.Button(self.frame_botones, text="Sumarizar", command=self.sumarizar)
+        self.btn_sumarizar.pack(side=tk.LEFT, padx=5)
+        
+        self.btn_descargar = tk.Button(self.frame_botones, text="Descargar Resultados", command=self.descargar_resultados)
+        self.btn_descargar.pack(side=tk.LEFT, padx=5)
 
         # Etiqueta de resultados
         self.lbl_resultado = tk.Label(self.root, text="")
@@ -119,12 +125,11 @@ class SumarizadorNotasPedido:
             # Obtener el rango de fechas seleccionado
             fecha_inicio = self.cal_fecha_inicio.get_date()  # Objeto datetime.date
             fecha_fin = self.cal_fecha_fin.get_date()  # Objeto datetime.date
-            
-            # Convertir a objetos datetime
+            laboratorio = self.selected_laboratorio.get()
+        
+            # Convertir las fechas a datetime
             fecha_inicio = datetime.combine(fecha_inicio, datetime.min.time())
             fecha_fin = datetime.combine(fecha_fin, datetime.max.time())
-
-            laboratorio = self.selected_laboratorio.get()
         
             # Filtrar por rango de fechas y laboratorio
             df_filtrado = self.df[
@@ -147,12 +152,14 @@ class SumarizadorNotasPedido:
             # Calcular el total de cantidades
             total_cantidades = resumen["Cantidad"].sum()
 
+            # Crear un DataFrame con los resultados sumarizados y el total de cantidades
             totales = pd.DataFrame({"Codebar": ["TOTAL"], "Producto": [None], "Cantidad": [total_cantidades], "Imp. Total": [importe_total_total]})
 
             # Concatenar el DataFrame de resumen y el DataFrame de totales
-            resumen_con_total = pd.concat([resumen.reset_index(), totales], ignore_index=True)
+            resumen_con_total = pd.concat([resumen.reset_index(), totales], ignore_index=True)  
+            
+            # Eliminar el .0 del final en el Codebar
             resumen_con_total['Codebar'] = resumen_con_total['Codebar'].astype(str).str.replace('.0', '')
-            # Crear un DataFrame con los resultados sumarizados y el total de cantidades
             
             self.df_sumarizado = resumen_con_total
 
@@ -169,7 +176,7 @@ class SumarizadorNotasPedido:
         self.top.title("Resultados Sumarizados")
 
         # Mostrar la tabla en la ventana secundaria
-        pt = Table(self.top, dataframe=df.reset_index(drop=True))
+        pt = Table(self.top, dataframe=df)
         pt.show()
 
     def descargar_resultados(self):
@@ -193,6 +200,9 @@ class SumarizadorNotasPedido:
                     messagebox.showinfo("Éxito", "Resultados sumarizados descargados correctamente.")
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo descargar los resultados sumarizados: {e}")
+
+# Configurar la localización en español
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
 # Crear la ventana principal de la aplicación
 root = tk.Tk()
