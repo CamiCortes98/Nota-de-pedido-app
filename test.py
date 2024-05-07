@@ -72,6 +72,7 @@ class SumarizadorNotasPedido:
                         # Leer todas las hojas del archivo Excel
                         xl = pd.ExcelFile(file_path)
                         for sheet_name in xl.sheet_names:
+                            print("Procesando hoja:", sheet_name)  # Mensaje de depuración
                             try:
                                 # Leer el contenido de cada hoja
                                 df = pd.read_excel(xl, sheet_name=sheet_name, skiprows=9)
@@ -134,18 +135,18 @@ class SumarizadorNotasPedido:
         try:
             # Convertir la columna "Can" a tipo float
             self.df["Can"] = pd.to_numeric(self.df["Can"], errors="coerce")
-            # Convertir la columna "Imp. Total" a tipo float
+                # Convertir la columna "Imp. Total" a tipo float
             self.df["Imp. Total"] = pd.to_numeric(self.df["Imp. Total"], errors="coerce")
 
             # Obtener el rango de fechas seleccionado
             fecha_inicio = self.cal_fecha_inicio.get_date()  # Objeto datetime.date
             fecha_fin = self.cal_fecha_fin.get_date()  # Objeto datetime.date
             laboratorio = self.selected_laboratorio.get()
-        
+    
             # Convertir las fechas a datetime
             fecha_inicio = datetime.combine(fecha_inicio, datetime.min.time())
             fecha_fin = datetime.combine(fecha_fin, datetime.max.time())
-        
+    
             # Filtrar por rango de fechas y laboratorio
             df_filtrado = self.df[
                 (self.df["Fecha del pedido"] >= fecha_inicio) &
@@ -153,13 +154,21 @@ class SumarizadorNotasPedido:
                 (self.df["Laboratorio"].str.lower() == laboratorio.lower())
             ]
 
+            # Eliminar filas donde "Imp. Total" está vacío o igual a cero
+            df_filtrado = df_filtrado.dropna(subset=["Imp. Total"])
+            df_filtrado = df_filtrado[df_filtrado["Imp. Total"] != 0]
+
             # Verificar si se encontraron datos para el rango de fechas y laboratorio ingresados
             if df_filtrado.empty:
                 messagebox.showerror("Error", "No se encontraron datos para el rango de fechas y laboratorio ingresados.")
                 return
 
             # Agrupar por código de barras, producto, droguería y comprador y sumarizar cantidades e importes totales
-            resumen = df_filtrado.groupby(["Codebar", "Producto", "Droguería por donde Llega", "Comprador"]).agg({'Can': 'sum', 'Imp. Total': 'sum'})
+            resumen = df_filtrado.groupby(["Codebar", "Producto", "Droguería por donde Llega", "Comprador"]).agg(
+            {'Can': 'sum', 'Imp. Total': 'sum'})
+
+            # Eliminar filas donde la suma de "Imp. Total" es cero
+            resumen = resumen[resumen["Imp. Total"] != 0]
 
             # Calcular el total de cantidades
             total_cantidades = resumen["Can"].sum()
@@ -167,14 +176,15 @@ class SumarizadorNotasPedido:
             total_importes = resumen["Imp. Total"].sum()
 
             # Crear un DataFrame con los resultados sumarizados y los totales
-            totales = pd.DataFrame({"Codebar": ["TOTAL"], "Producto": [None], "Droguería por donde Llega": [None], "Comprador": [None], "Can": [total_cantidades], "Imp. Total": [total_importes]})
+            totales = pd.DataFrame({"Codebar": ["TOTAL"], "Producto": [None], "Droguería por donde Llega": [None],
+                                "Comprador": [None], "Can": [total_cantidades], "Imp. Total": [total_importes]})
 
             # Concatenar el DataFrame de resumen y el DataFrame de totales
-            resumen_con_total = pd.concat([resumen.reset_index(), totales], ignore_index=True)  
+            resumen_con_total = pd.concat([resumen.reset_index(), totales], ignore_index=True)
 
             # Eliminar el .0 del final en el Codebar
             resumen_con_total['Codebar'] = resumen_con_total['Codebar'].astype(str).str.replace('.0', '')
-            
+
             self.df_sumarizado = resumen_con_total
 
             # Mostrar el resultado en una nueva ventana
