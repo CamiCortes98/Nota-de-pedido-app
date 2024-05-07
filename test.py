@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -77,11 +76,9 @@ class SumarizadorNotasPedido:
                                 # Leer el contenido de cada hoja
                                 df = pd.read_excel(xl, sheet_name=sheet_name, skiprows=9)
 
-                                # Verificar si la columna 'Codebar' está presente en el DataFrame
-                                if "Codebar" in df.columns:
-                                    df["Codebar"] = df["Codebar"].fillna('').astype(str)
-                                else:
-                                    print(f"No se encontró la columna 'Codebar' en la hoja '{sheet_name}' del archivo '{file_path}'. Saltando esta hoja...")  # Mensaje de depuración
+                                # Verificar si las columnas necesarias están presentes en el DataFrame
+                                if "Can" not in df.columns or "Imp. Total" not in df.columns:
+                                    print(f"No se encontraron las columnas necesarias en la hoja '{sheet_name}' del archivo '{file_path}'. Saltando esta hoja...")  # Mensaje de depuración
                                     continue
 
                                 # Reemplazar los valores vacíos en la columna 'Codebar' con una cadena vacía
@@ -100,8 +97,16 @@ class SumarizadorNotasPedido:
                                 # Leer el nombre del laboratorio de la celda combinada E2
                                 laboratorio = ws['E2'].value
 
-                                # Asignar el nombre del laboratorio a la columna "Laboratorio"
+                                # Leer la droguería por donde llega de la celda combinada E4
+                                drogueria = ws['E4'].value if ws['E4'].value else "No asignado"
+
+                                # Leer el comprador de la celda combinada C6
+                                comprador = ws['C6'].value if ws['C6'].value else "No asignado"
+
+                                # Asignar el nombre del laboratorio, droguería y comprador a las respectivas columnas
                                 df["Laboratorio"] = laboratorio
+                                df["Droguería por donde Llega"] = drogueria
+                                df["Comprador"] = comprador
 
                                 # Agregar el DataFrame procesado a la lista
                                 dfs.append(df)
@@ -127,10 +132,10 @@ class SumarizadorNotasPedido:
             return
 
         try:
+            # Convertir la columna "Can" a tipo float
+            self.df["Can"] = pd.to_numeric(self.df["Can"], errors="coerce")
             # Convertir la columna "Imp. Total" a tipo float
             self.df["Imp. Total"] = pd.to_numeric(self.df["Imp. Total"], errors="coerce")
-            # Redondear los importes totales a 2 decimales
-            self.df["Imp. Total"] = self.df["Imp. Total"].round(2)
 
             # Obtener el rango de fechas seleccionado
             fecha_inicio = self.cal_fecha_inicio.get_date()  # Objeto datetime.date
@@ -153,21 +158,20 @@ class SumarizadorNotasPedido:
                 messagebox.showerror("Error", "No se encontraron datos para el rango de fechas y laboratorio ingresados.")
                 return
 
-            # Agrupar por código de barras y producto y sumarizar importes
-            resumen = df_filtrado.groupby(["Codebar", "Producto"]).agg({'Can': 'sum', 'Imp. Total': 'sum'})
-
-            # Calcular el importe total de todos los productos
-            importe_total_total = resumen["Imp. Total"].sum()
+            # Agrupar por código de barras, producto, droguería y comprador y sumarizar cantidades e importes totales
+            resumen = df_filtrado.groupby(["Codebar", "Producto", "Droguería por donde Llega", "Comprador"]).agg({'Can': 'sum', 'Imp. Total': 'sum'})
 
             # Calcular el total de cantidades
             total_cantidades = resumen["Can"].sum()
+            # Calcular el total de importes totales
+            total_importes = resumen["Imp. Total"].sum()
 
-            # Crear un DataFrame con los resultados sumarizados y el total de cantidades
-            totales = pd.DataFrame({"Codebar": ["TOTAL"], "Producto": [None], "Can": [total_cantidades], "Imp. Total": [importe_total_total]})
+            # Crear un DataFrame con los resultados sumarizados y los totales
+            totales = pd.DataFrame({"Codebar": ["TOTAL"], "Producto": [None], "Droguería por donde Llega": [None], "Comprador": [None], "Can": [total_cantidades], "Imp. Total": [total_importes]})
 
             # Concatenar el DataFrame de resumen y el DataFrame de totales
             resumen_con_total = pd.concat([resumen.reset_index(), totales], ignore_index=True)  
-            
+
             # Eliminar el .0 del final en el Codebar
             resumen_con_total['Codebar'] = resumen_con_total['Codebar'].astype(str).str.replace('.0', '')
             
@@ -204,9 +208,11 @@ class SumarizadorNotasPedido:
                     header_format = workbook.add_format({'bold': True, 'align': 'center'})
                     worksheet.write(0, 0, "Codebar", header_format)
                     worksheet.write(0, 1, "Producto", header_format)
-                    worksheet.write(0, 2, "Cant", header_format)
-                    worksheet.write(0, 3, "Imp. Total", header_format)
-                    worksheet.set_column('A:D', 20)
+                    worksheet.write(0, 2, "Droguería por donde Llega", header_format)
+                    worksheet.write(0, 3, "Comprador", header_format)
+                    worksheet.write(0, 4, "Cantidad", header_format)
+                    worksheet.write(0, 5, "Imp. Total", header_format)
+                    worksheet.set_column('A:G', 20)
                     messagebox.showinfo("Éxito", "Resultados sumarizados descargados correctamente.")
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo descargar los resultados sumarizados: {e}")
